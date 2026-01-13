@@ -2,14 +2,10 @@ let map;
 let points = [];
 let directionsService;
 let directionsRenderer;
-let taxi;
-let routePath = [];
-let step = 0;
+let taxiMarker;
 let airLine;
 
 function initMap() {
-  console.log("JS çalışıyor");
-
   map = new google.maps.Map(document.getElementById("map"), {
     center: { lat: 39.92, lng: 32.85 },
     zoom: 12
@@ -18,7 +14,7 @@ function initMap() {
   directionsService = new google.maps.DirectionsService();
   directionsRenderer = new google.maps.DirectionsRenderer({
     map: map,
-    panel: document.getElementById("panel")
+    panel: document.getElementById("directions")
   });
 
   map.addListener("click", (e) => {
@@ -32,13 +28,6 @@ function initMap() {
       }
     }
   });
-
-  document.addEventListener("keydown", (e) => {
-    if (e.code === "Space") {
-      e.preventDefault();
-      moveTaxi();
-    }
-  });
 }
 
 function drawRoute() {
@@ -46,25 +35,25 @@ function drawRoute() {
     {
       origin: points[0],
       destination: points[1],
-      travelMode: "DRIVING"
+      travelMode: google.maps.TravelMode.DRIVING
     },
     (result, status) => {
       if (status === "OK") {
         directionsRenderer.setDirections(result);
 
         const leg = result.routes[0].legs[0];
-        document.getElementById("road").innerText = leg.distance.text;
+        document.getElementById("roadDistance").innerText =
+          leg.distance.text;
 
-        routePath = result.routes[0].overview_path;
-        createTaxi();
+        createTaxi(result.routes[0].overview_path);
       }
     }
   );
 }
 
-function createTaxi() {
-  taxi = new google.maps.Marker({
-    position: routePath[0],
+function createTaxi(path) {
+  taxiMarker = new google.maps.Marker({
+    position: path[0],
     map: map,
     icon: {
       url: "https://maps.google.com/mapfiles/kml/shapes/cabs.png",
@@ -73,25 +62,20 @@ function createTaxi() {
   });
 }
 
-function moveTaxi() {
-  if (!taxi || step >= routePath.length) return;
-  taxi.setPosition(routePath[step]);
-  step++;
-}
-
 function drawAirLine() {
-  const dist = google.maps.geometry.spherical.computeDistanceBetween(
-    points[0],
-    points[1]
-  );
+  const distance =
+    google.maps.geometry.spherical.computeDistanceBetween(
+      points[0],
+      points[1]
+    );
 
-  document.getElementById("air").innerText =
-    (dist / 1000).toFixed(2) + " km";
+  document.getElementById("airDistance").innerText =
+    (distance / 1000).toFixed(2) + " km";
 
   airLine = new google.maps.Polyline({
     path: points,
     map: map,
-    strokeColor: "#ff00aa",
+    strokeColor: "#ff1493",
     strokeOpacity: 1,
     strokeWeight: 3
   });
