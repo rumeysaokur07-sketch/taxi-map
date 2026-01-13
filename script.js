@@ -1,32 +1,30 @@
 let map;
-let start = null;
-let end = null;
+let points = [];
 let directionsService;
 let directionsRenderer;
+let taxiMarker;
 let routePath = [];
 let stepIndex = 0;
-let taxiMarker = null;
+let airLine;
 
 function initMap() {
   map = new google.maps.Map(document.getElementById("map"), {
     center: { lat: 39.92, lng: 32.85 },
-    zoom: 13
+    zoom: 12
   });
 
   directionsService = new google.maps.DirectionsService();
-  directionsRenderer = new google.maps.DirectionsRenderer({
-    map: map,
-    suppressMarkers: true
-  });
+  directionsRenderer = new google.maps.DirectionsRenderer({ map });
 
   map.addListener("click", (e) => {
-    if (!start) {
-      start = e.latLng;
-      placeMarker(start);
-    } else if (!end) {
-      end = e.latLng;
-      placeMarker(end);
-      drawRoute();
+    if (points.length < 2) {
+      points.push(e.latLng);
+      new google.maps.Marker({ position: e.latLng, map });
+
+      if (points.length === 2) {
+        drawRoute();
+        drawAirDistance();
+      }
     }
   });
 
@@ -38,63 +36,36 @@ function initMap() {
   });
 }
 
-function placeMarker(position) {
-  new google.maps.Marker({
-    position,
-    map
-  });
-}
-
 function drawRoute() {
   directionsService.route(
     {
-      origin: start,
-      destination: end,
-      travelMode: google.maps.TravelMode.DRIVING
+      origin: points[0],
+      destination: points[1],
+      travelMode: "DRIVING"
     },
     (result, status) => {
       if (status === "OK") {
         directionsRenderer.setDirections(result);
 
-        const route = result.routes[0];
-        const leg = route.legs[0];
+        const leg = result.routes[0].legs[0];
+        document.getElementById("roadDistance").innerText = leg.distance.text;
 
-        // Yol mesafesi
-        document.getElementById("roadDistance").innerText =
-          leg.distance.text;
-
-        // Kuş uçuşu mesafe
-        const air = haversineDistance(
-          { lat: start.lat(), lng: start.lng() },
-          { lat: end.lat(), lng: end.lng() }
-        );
-        document.getElementById("airDistance").innerText =
-          air.toFixed(2) + " km";
-
-        // Yol noktaları
-        routePath = [];
-        route.overview_path.forEach(p => {
-          routePath.push(p);
-        });
-
-        stepIndex = 0;
-
-        // Pembe taksi
-        taxiMarker = new google.maps.Marker({
-          position: routePath[0],
-          map: map,
-          icon: {
-            path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-            scale: 6,
-            fillColor: "#ff4da6",
-            fillOpacity: 1,
-            strokeColor: "#000",
-            strokeWeight: 1
-          }
-        });
+        routePath = result.routes[0].overview_path;
+        createTaxi();
       }
     }
   );
+}
+
+function createTaxi() {
+  taxiMarker = new google.maps.Marker({
+    position: routePath[0],
+    map,
+    icon: {
+      url: "https://maps.google.com/mapfiles/kml/shapes/cabs.png",
+      scaledSize: new google.maps.Size(40, 40)
+    }
+  });
 }
 
 function moveTaxi() {
@@ -104,18 +75,20 @@ function moveTaxi() {
   stepIndex++;
 }
 
-// Haversine – kuş uçuşu mesafe
-function haversineDistance(p1, p2) {
-  const R = 6371;
-  const dLat = (p2.lat - p1.lat) * Math.PI / 180;
-  const dLng = (p2.lng - p1.lng) * Math.PI / 180;
+function drawAirDistance() {
+  const distance = google.maps.geometry.spherical.computeDistanceBetween(
+    points[0],
+    points[1]
+  );
 
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(p1.lat * Math.PI / 180) *
-    Math.cos(p2.lat * Math.PI / 180) *
-    Math.sin(dLng / 2) ** 2;
+  document.getElementById("airDistance").innerText =
+    (distance / 1000).toFixed(2) + " km";
 
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+  airLine = new google.maps.Polyline({
+    path: points,
+    map,
+    strokeColor: "#FF00AA",
+    strokeOpacity: 1,
+    strokeWeight: 3
+  });
 }
